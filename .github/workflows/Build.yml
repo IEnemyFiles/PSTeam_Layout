@@ -1,58 +1,47 @@
-name: Build and Convert Java to Smali
+name: Build APK
 
 on:
   push:
     branches:
-      - main  # Change this as necessary
+      - main  # Trigger the workflow when code is pushed to the main branch
   pull_request:
     branches:
-      - main  # Change this as necessary
+      - main  # Trigger the workflow for pull requests to the main branch
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Use the latest Ubuntu image for the job
 
     steps:
-    # Step 1: Checkout the repository
-    - name: Checkout Repository
+    # Step 1: Check out the repository
+    - name: Checkout code
       uses: actions/checkout@v3
 
-    # Step 2: Set up Java environment with Java version 17 and package type 'jdk'
-    - name: Set up Java
+    # Step 2: Set up Java Development Kit (JDK)
+    - name: Set up JDK 11
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
-        java-package: 'jdk'  # Ensure that the JDK (not just JRE) is installed for compiling code
+        java-version: '11'  # Ensure this matches your project's requirements
 
-    # Step 3: Install Android NDK r22
+    # Step 3: Set up Android SDK
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v2
+      with:
+        sdk-version: 'commandlinetools;latest'  # Use the latest command line tools version
+
+    # Step 4: Install NDK
     - name: Install Android NDK r22
       run: |
-        wget https://dl.google.com/android/repository/android-ndk-r22-linux.zip
-        unzip android-ndk-r22-linux.zip -d $HOME/ndk
-        export PATH=$PATH:$HOME/ndk/android-ndk-r22
+        yes | sdkmanager --licenses
+        sdkmanager "ndk;22.1.7171670"  # Install the specified version of the NDK
 
-    # Step 4: Compile Java code to .class files
-    - name: Compile Java to .class
-      run: |
-        mkdir -p build/classes
-        javac -d build/classes src/**/*.java  # Adjust this to your project structure
+    # Step 5: Build the APK
+    - name: Build APK
+      run: ./gradlew assembleRelease  # Use the appropriate Gradle task for your build configuration
 
-    # Step 5: Convert .class files to .dex format (using dx or d8)
-    - name: Convert .class to .dex
-      run: |
-        $HOME/ndk/android-ndk-r22/build/ndk-build  # If you need to use ndk-build for any custom builds
-        # Use dx (or d8) to convert .class to .dex
-        $HOME/ndk/android-ndk-r22/tools/dx --dex --output=build/classes.dex build/classes
-
-    # Step 6: Decompile .dex to Smali using Apktool
-    - name: Convert .dex to Smali using Apktool
-      run: |
-        wget https://github.com/iBotPeaches/Apktool/releases/download/v2.5.0/apktool_2.5.0.jar -O apktool.jar
-        java -jar apktool.jar d build/classes.dex -o build/smali
-
-    # Step 7: Archive the results (optional)
-    - name: Upload Smali Files as Artifacts
+    # Step 6: Upload APK as an artifact (optional)
+    - name: Upload APK
       uses: actions/upload-artifact@v3
       with:
-        name: smali-files
-        path: build/smali
+        name: app-release
+        path: app/build/outputs/apk/release/app-release.apk  # Adjust path as needed
